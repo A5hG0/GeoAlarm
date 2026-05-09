@@ -2,32 +2,32 @@ import { useEffect, useRef } from "react";
 import { router } from "expo-router";
 import { startAlarm, stopAlarm } from "@/services/alarmService";
 import { useAlarmStore } from "@/store/alarmStore";
+import { AlarmDistance } from "@/hooks/useGeoFence";
 
-export function useAlarm(isWithinRadius: boolean) {
-  const hasTriggered = useRef(false);
-  const activeAlarm = useAlarmStore((s) => s.activeAlarm);
-
-  // Reset trigger flag when alarm is cleared
-  useEffect(() => {
-    if (!activeAlarm) {
-      hasTriggered.current = false;
-    }
-  }, [activeAlarm]);
+export function useAlarm(distances: AlarmDistance[]) {
+  const triggeredRef = useRef<Set<string>>(new Set());
+  const { setTriggeredAlarm, alarms } = useAlarmStore();
 
   useEffect(() => {
-    if (isWithinRadius && !hasTriggered.current) {
-      hasTriggered.current = true;
-      startAlarm();
-      router.push("/alarm-triggered");
+    if (alarms.length === 0) {
+      triggeredRef.current.clear();
+      return;
     }
-  }, [isWithinRadius]);
 
-  // Safety: stop alarm if active screen unmounts while alarm is running
+    for (const d of distances) {
+      if (d.isWithinRadius && !triggeredRef.current.has(d.alarmId)) {
+        triggeredRef.current.add(d.alarmId);
+        setTriggeredAlarm(d.alarmId);
+        startAlarm();
+        router.push("/alarm-triggered");
+        break; // trigger one at a time
+      }
+    }
+  }, [distances]);
+
   useEffect(() => {
     return () => {
-      if (hasTriggered.current) {
-        stopAlarm();
-      }
+      stopAlarm();
     };
   }, []);
 }

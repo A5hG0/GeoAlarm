@@ -3,21 +3,32 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useAlarmStore } from '@/store/alarmStore';
 import { stopAlarm } from '@/services/alarmService';
+import { saveToHistory } from '@/services/storageService';
 import { SPACING } from '@/constants/theme';
 
 export default function AlarmTriggeredScreen() {
-  const clearAlarm = useAlarmStore((s) => s.clearAlarm);
-
-  // Prevent back button from bypassing dismiss
-  useEffect(() => {
-    // intentionally empty — no cleanup here
-    // stopAlarm is only called by handleDismiss
-  }, []);
+  const { alarms, triggeredAlarmId, removeAlarm, setTriggeredAlarm } = useAlarmStore();
 
   async function handleDismiss() {
-    await stopAlarm();    // stop first
-    clearAlarm();         // then clear state
-    router.replace('/(tabs)/home');  // then navigate
+    await stopAlarm();
+
+    // Save to history as triggered
+    const alarm = alarms.find((a) => a.id === triggeredAlarmId);
+    if (alarm) {
+      await saveToHistory({
+        id: alarm.id,
+        destination: alarm.destination,
+        destinationLabel: alarm.destinationLabel,
+        radiusMeters: alarm.radiusMeters,
+        status: 'triggered',
+        createdAt: alarm.createdAt,
+        resolvedAt: Date.now(),
+      });
+      removeAlarm(alarm.id);
+    }
+
+    setTriggeredAlarm(null);
+    router.replace('/(tabs)/home');
   }
 
   return (
@@ -25,7 +36,6 @@ export default function AlarmTriggeredScreen() {
       <Text style={styles.emoji}>⏰</Text>
       <Text style={styles.title}>Wake Up!</Text>
       <Text style={styles.subtitle}>You have reached your destination</Text>
-
       <TouchableOpacity
         style={styles.dismissButton}
         onPress={handleDismiss}
@@ -46,9 +56,7 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     gap: SPACING.lg,
   },
-  emoji: {
-    fontSize: 80,
-  },
+  emoji: { fontSize: 80 },
   title: {
     fontSize: 52,
     fontWeight: '800',

@@ -14,5 +14,5 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.d.ts"
-  ]
+, "app/(tabs)/active.tsx"  ]
 }

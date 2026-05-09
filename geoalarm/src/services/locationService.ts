@@ -1,4 +1,8 @@
 import * as Location from "expo-location";
+import {
+  BACKGROUND_TASK_NAME,
+  LOCATION_UPDATE_INTERVAL_MS,
+} from "@/constants/config";
 
 export async function requestLocationPermissions(): Promise<boolean> {
   const { status: foreground } =
@@ -22,26 +26,34 @@ export async function getCurrentLocation(): Promise<Location.LocationObject | nu
   }
 }
 
-export async function startLocationUpdates(
-  taskName: string,
-  intervalMs: number,
-): Promise<void> {
-  await Location.startLocationUpdatesAsync(taskName, {
+export async function startBackgroundTracking(): Promise<void> {
+  const isRunning =
+    await Location.hasStartedLocationUpdatesAsync(BACKGROUND_TASK_NAME);
+  if (isRunning) return; // already running, don't start twice
+
+  await Location.startLocationUpdatesAsync(BACKGROUND_TASK_NAME, {
     accuracy: Location.Accuracy.High,
-    timeInterval: intervalMs,
-    distanceInterval: 10,
+    timeInterval: LOCATION_UPDATE_INTERVAL_MS,
+    distanceInterval: 20,
     foregroundService: {
-      notificationTitle: "GeoAlarm is active",
-      notificationBody: "Watching your location...",
+      notificationTitle: "📍 GeoAlarm",
+      notificationBody: "Alarm is active — tap to open",
       notificationColor: "#007AFF",
+      killServiceOnDestroy: false,
     },
     pausesUpdatesAutomatically: false,
+    showsBackgroundLocationIndicator: true,
   });
 }
 
-export async function stopLocationUpdates(taskName: string): Promise<void> {
-  const isRunning = await Location.hasStartedLocationUpdatesAsync(taskName);
+export async function stopBackgroundTracking(): Promise<void> {
+  const isRunning =
+    await Location.hasStartedLocationUpdatesAsync(BACKGROUND_TASK_NAME);
   if (isRunning) {
-    await Location.stopLocationUpdatesAsync(taskName);
+    await Location.stopLocationUpdatesAsync(BACKGROUND_TASK_NAME);
   }
+}
+
+export async function isBackgroundTrackingActive(): Promise<boolean> {
+  return await Location.hasStartedLocationUpdatesAsync(BACKGROUND_TASK_NAME);
 }
