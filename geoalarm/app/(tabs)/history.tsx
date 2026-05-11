@@ -1,28 +1,27 @@
 import { useEffect, useState } from 'react';
 import {
-  View, Text, FlatList, TouchableOpacity,
-  StyleSheet, Alert,
+  View, Text, FlatList, TouchableOpacity, Alert,
 } from 'react-native';
 import { getHistory, clearHistory } from '@/services/storageService';
 import { AlarmHistoryEntry } from '@/types';
-import { COLORS, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import { SPACING, RADIUS } from '@/constants/theme';
 
 export default function HistoryScreen() {
+  const C = useTheme();
   const [history, setHistory] = useState<AlarmHistoryEntry[]>([]);
 
   async function load() {
-    const data = await getHistory();
-    setHistory(data);
+    setHistory(await getHistory());
   }
 
   useEffect(() => { load(); }, []);
 
   function handleClear() {
-    Alert.alert('Clear History', 'Delete all alarm history?', [
+    Alert.alert('Clear History', 'Delete all history?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Clear',
-        style: 'destructive',
+        text: 'Clear', style: 'destructive',
         onPress: async () => {
           await clearHistory();
           setHistory([]);
@@ -32,111 +31,122 @@ export default function HistoryScreen() {
   }
 
   function renderItem({ item }: { item: AlarmHistoryEntry }) {
-    const date = new Date(item.resolvedAt).toLocaleDateString();
-    const time = new Date(item.resolvedAt).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const reached = item.status === 'triggered';
+    const date = new Date(item.resolvedAt);
+    const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     return (
-      <View style={styles.card}>
-        <View style={[
-          styles.statusBadge,
-          item.status === 'triggered' ? styles.badgeTriggered : styles.badgeCancelled,
-        ]}>
-          <Text style={styles.badgeText}>
-            {item.status === 'triggered' ? '✅ Reached' : '✕ Cancelled'}
+      <View style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: C.card,
+        borderRadius: RADIUS.lg,
+        borderWidth: 0.5,
+        borderColor: C.cardBorder,
+        padding: SPACING.md,
+        gap: SPACING.sm,
+        marginBottom: SPACING.sm,
+      }}>
+        <View style={{
+          width: 36, height: 36,
+          borderRadius: RADIUS.md,
+          backgroundColor: reached
+            ? 'rgba(48,209,88,0.12)'
+            : 'rgba(255,69,58,0.1)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}>
+          <Text style={{
+            fontSize: 14,
+            color: reached ? C.success : C.danger,
+            fontWeight: '600',
+          }}>
+            {reached ? '✓' : '✕'}
           </Text>
         </View>
-        <Text style={styles.cardLabel}>{item.destinationLabel}</Text>
-        <Text style={styles.cardMeta}>Radius: {item.radiusMeters}m</Text>
-        <Text style={styles.cardDate}>{date} at {time}</Text>
+
+        <View style={{ flex: 1, gap: 3 }}>
+          <Text style={{
+            fontSize: 15, fontWeight: '600',
+            color: C.text, letterSpacing: -0.2,
+          }} numberOfLines={1}>
+            {item.destinationLabel}
+          </Text>
+          <Text style={{ fontSize: 12, color: C.textSecondary }}>
+            {dateStr} · {timeStr} · {item.radiusMeters}m
+          </Text>
+        </View>
+
+        <Text style={{
+          fontSize: 12, fontWeight: '600',
+          color: reached ? C.success : C.textTertiary,
+        }}>
+          {reached ? 'Reached' : 'Cancelled'}
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={{ flex: 1, backgroundColor: C.background }}>
+
+      <View style={{
+        paddingTop: 60, paddingHorizontal: SPACING.lg,
+        paddingBottom: SPACING.md, flexDirection: 'row',
+        alignItems: 'baseline', justifyContent: 'space-between',
+      }}>
+        <Text style={{
+          fontSize: 34, fontWeight: '700',
+          color: C.text, letterSpacing: -0.8,
+        }}>
+          History
+        </Text>
+        {history.length > 0 && (
+          <TouchableOpacity onPress={handleClear}>
+            <Text style={{ fontSize: 16, color: C.danger }}>Clear</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       {history.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>📋</Text>
-          <Text style={styles.emptyTitle}>No history yet</Text>
-          <Text style={styles.emptySubtitle}>
-            Completed and cancelled alarms will appear here
+        <View style={{ flex: 1, alignItems: 'center',
+          justifyContent: 'center', gap: SPACING.sm }}>
+          <View style={{
+            width: 72, height: 72, borderRadius: RADIUS.xl,
+            backgroundColor: C.surface, borderWidth: 0.5,
+            borderColor: C.surfaceBorder, alignItems: 'center',
+            justifyContent: 'center', marginBottom: SPACING.sm,
+          }}>
+            <Text style={{ fontSize: 32 }}>📋</Text>
+          </View>
+          <Text style={{
+            fontSize: 18, fontWeight: '600',
+            color: C.text, letterSpacing: -0.3,
+          }}>
+            No history yet
+          </Text>
+          <Text style={{
+            fontSize: 14, color: C.textSecondary,
+            textAlign: 'center', paddingHorizontal: SPACING.xl,
+          }}>
+            Completed and cancelled alarms appear here
           </Text>
         </View>
       ) : (
-        <>
-          <FlatList
-            data={history}
-            keyExtractor={(item) => item.id + item.resolvedAt}
-            renderItem={renderItem}
-            contentContainerStyle={styles.list}
-          />
-          <TouchableOpacity style={styles.clearBtn} onPress={handleClear}>
-            <Text style={styles.clearBtnText}>Clear History</Text>
-          </TouchableOpacity>
-        </>
+        <FlatList
+          data={history}
+          keyExtractor={(item) => item.id + item.resolvedAt}
+          renderItem={renderItem}
+          contentContainerStyle={{
+            padding: SPACING.md,
+            paddingTop: SPACING.sm,
+            paddingBottom: 110,
+          }}
+        />
       )}
+
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  list: { padding: SPACING.md, gap: SPACING.sm, paddingBottom: 80 },
-  empty: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  emptyIcon: { fontSize: 56 },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    paddingHorizontal: SPACING.xl,
-  },
-  card: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: SPACING.md,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 3,
-    borderRadius: 20,
-    marginBottom: SPACING.xs,
-  },
-  badgeTriggered: { backgroundColor: '#E6F9EE' },
-  badgeCancelled: { backgroundColor: '#FFF0F0' },
-  badgeText: { fontSize: 12, fontWeight: '600' },
-  cardLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  cardMeta: { fontSize: 12, color: COLORS.textSecondary },
-  cardDate: { fontSize: 12, color: COLORS.textSecondary },
-  clearBtn: {
-    position: 'absolute',
-    bottom: 24,
-    left: SPACING.md,
-    right: SPACING.md,
-    backgroundColor: COLORS.danger,
-    padding: SPACING.md,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  clearBtnText: { color: 'white', fontSize: 15, fontWeight: '600' },
-});

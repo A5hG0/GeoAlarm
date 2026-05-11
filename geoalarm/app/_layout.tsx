@@ -1,10 +1,9 @@
 import { Stack } from 'expo-router';
-import { COLORS } from '@/constants/theme';
-
-// Import SIDE EFFECTS first — task must be defined before app loads
 import '@/services/backgroundTask';
+import { useTheme } from '@/hooks/useTheme';
 
 export default function RootLayout() {
+  const C = useTheme();
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -13,8 +12,8 @@ export default function RootLayout() {
         options={{
           title: 'New Alarm',
           presentation: 'modal',
-          headerStyle: { backgroundColor: COLORS.card },
-          headerTintColor: COLORS.text,
+          headerStyle: { backgroundColor: C.sheet },
+          headerTintColor: C.text,
         }}
       />
       <Stack.Screen
@@ -22,8 +21,8 @@ export default function RootLayout() {
         options={{
           title: 'Edit Alarm',
           presentation: 'modal',
-          headerStyle: { backgroundColor: COLORS.card },
-          headerTintColor: COLORS.text,
+          headerStyle: { backgroundColor: C.sheet },
+          headerTintColor: C.text,
         }}
       />
       <Stack.Screen name="alarm-triggered" options={{ headerShown: false }} />

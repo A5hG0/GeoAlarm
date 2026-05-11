@@ -1,6 +1,7 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text } from 'react-native';
 import Slider from '@react-native-community/slider';
-import { COLORS, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import { SPACING } from '@/constants/theme';
 
 interface RadiusSliderProps {
   value: number;
@@ -8,55 +9,40 @@ interface RadiusSliderProps {
 }
 
 export default function RadiusSlider({ value, onChange }: RadiusSliderProps) {
+  const C = useTheme();
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>
-        Alert radius: <Text style={styles.value}>{value}m</Text>
-      </Text>
+    <View style={{
+      paddingHorizontal: SPACING.md,
+      paddingVertical: SPACING.sm,
+      backgroundColor: C.card,
+      gap: SPACING.xs,
+    }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text style={{ fontSize: 12, color: C.textSecondary,
+          textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Alert radius
+        </Text>
+        <Text style={{ fontSize: 15, fontWeight: '600', color: C.primary }}>
+          {value}m
+        </Text>
+      </View>
       <Slider
-        style={styles.slider}
+        style={{ width: '100%', height: 36 }}
         minimumValue={100}
         maximumValue={2000}
-        step={100}
+        step={50}
         value={value}
         onValueChange={onChange}
-        minimumTrackTintColor={COLORS.primary}
-        maximumTrackTintColor={COLORS.border}
-        thumbTintColor={COLORS.primary}
+        minimumTrackTintColor={C.primary}
+        maximumTrackTintColor={C.border}
+        thumbTintColor={C.primary}
       />
-      <View style={styles.labels}>
-        <Text style={styles.rangeLabel}>100m</Text>
-        <Text style={styles.rangeLabel}>2km</Text>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+        <Text style={{ fontSize: 11, color: C.textTertiary }}>100m</Text>
+        <Text style={{ fontSize: 11, color: C.textTertiary }}>1km</Text>
+        <Text style={{ fontSize: 11, color: C.textTertiary }}>2km</Text>
       </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.card,
-  },
-  label: {
-    fontSize: 15,
-    color: COLORS.text,
-    marginBottom: SPACING.xs,
-  },
-  value: {
-    fontWeight: 'bold',
-    color: COLORS.primary,
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  labels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  rangeLabel: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-});

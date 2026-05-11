@@ -1,236 +1,157 @@
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, Alert } from 'react-native';
-import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
+import {
+  View, Text, FlatList, TouchableOpacity,
+  StyleSheet, Alert,
+} from 'react-native';
+import { router } from 'expo-router';
 import { useAlarmStore } from '@/store/alarmStore';
 import { useGeoFence } from '@/hooks/useGeoFence';
 import { useAlarm } from '@/hooks/useAlarm';
-import { saveToHistory } from '@/services/storageService';
 import { useBackgroundManager } from '@/hooks/useBackgroundManager';
-import { COLORS, SPACING } from '@/constants/theme';
+import { useTheme } from '@/hooks/useTheme';
+import { saveToHistory } from '@/services/storageService';
+import { SPACING, RADIUS } from '@/constants/theme';
 import { Alarm } from '@/types';
+import AlarmCard from '@/components/features/AlarmCard';
+
+function formatDistance(meters: number): string {
+  if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+  return `${Math.round(meters)} m`;
+}
 
 export default function HomeScreen() {
   useBackgroundManager();
+  const C = useTheme();
   const { alarms, removeAlarm } = useAlarmStore();
   const { distances } = useGeoFence();
   useAlarm(distances);
+  const [hydrated, setHydrated] = useState(false);
 
-  function getDistance(alarmId: string): string {
-    const d = distances.find((x) => x.alarmId === alarmId);
-    if (!d) return '—';
-    const m = d.distanceMeters;
-    return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`;
+  useEffect(() => {
+    const unsub = useAlarmStore.persist.onFinishHydration(() => setHydrated(true));
+    if (useAlarmStore.persist.hasHydrated()) setHydrated(true);
+    return unsub;
+  }, []);
+
+  function getDistInfo(alarm: Alarm) {
+    const d = distances.find((x) => x.alarmId === alarm.id);
+    return {
+      label: d ? formatDistance(d.distanceMeters) : '—',
+      isClose: !!d && d.distanceMeters <= alarm.radiusMeters * 2,
+      isWithin: !!d?.isWithinRadius,
+    };
   }
 
   function handleDelete(alarm: Alarm) {
-    Alert.alert(
-      'Remove Alarm',
-      `Remove alarm for "${alarm.destinationLabel}"?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            await saveToHistory({
-              id: alarm.id,
-              destination: alarm.destination,
-              destinationLabel: alarm.destinationLabel,
-              radiusMeters: alarm.radiusMeters,
-              status: 'cancelled',
-              createdAt: alarm.createdAt,
-              resolvedAt: Date.now(),
-            });
-            removeAlarm(alarm.id);
-          },
+    Alert.alert('Remove Alarm', `Remove "${alarm.destinationLabel}"?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive',
+        onPress: async () => {
+          await saveToHistory({
+            id: alarm.id,
+            destination: alarm.destination,
+            destinationLabel: alarm.destinationLabel,
+            radiusMeters: alarm.radiusMeters,
+            status: 'cancelled',
+            createdAt: alarm.createdAt,
+            resolvedAt: Date.now(),
+          });
+          removeAlarm(alarm.id);
         },
-      ]
+      },
+    ]);
+  }
+
+  if (!hydrated) {
+    return (
+      <View style={{ flex: 1, backgroundColor: C.background,
+        alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: C.textSecondary, fontSize: 14 }}>Loading...</Text>
+      </View>
     );
   }
 
-  function renderAlarm({ item }: { item: Alarm }) {
-  const dist = getDistance(item.id);
-  const d = distances.find((x) => x.alarmId === item.id);
-  const isClose = d && d.distanceMeters <= item.radiusMeters * 2;
-  const isWithin = d && d.isWithinRadius;
-
   return (
-    <TouchableOpacity
-      onPress={() => router.push(`/edit-alarm?id=${item.id}`)}  // ← tap to edit
-      activeOpacity={0.8}
-    >
-      <View style={[
-        styles.alarmCard,
-        isWithin && styles.alarmCardWithin,
-        isClose && !isWithin && styles.alarmCardClose,
-      ]}>
-        <View style={styles.alarmInfo}>
-          <Text style={styles.alarmLabel}>{item.destinationLabel}</Text>
-          <Text style={styles.alarmMeta}>Radius: {item.radiusMeters}m</Text>
-          <Text style={[
-            styles.alarmDistance,
-            isWithin && styles.alarmDistanceWithin,
-          ]}>
-            {dist} away
+    <View style={{ flex: 1, backgroundColor: C.background }}>
+
+      <View style={{ paddingTop: 60, paddingHorizontal: SPACING.lg,
+        paddingBottom: SPACING.md, flexDirection: 'row',
+        alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <Text style={{ fontSize: 34, fontWeight: '700',
+          color: C.text, letterSpacing: -0.8 }}>
+          Alarms
+        </Text>
+        {alarms.length > 0 && (
+          <Text style={{ fontSize: 14, color: C.textSecondary }}>
+            {alarms.length} active
           </Text>
-        </View>
-
-        {/* Edit hint */}
-        <View style={styles.editHint}>
-          <Text style={styles.editHintText}>›</Text>
-        </View>
+        )}
       </View>
-    </TouchableOpacity>
-  );
-}
 
-    const [hydrated, setHydrated] = useState(false);
-
-    useEffect(() => {
-    // Zustand persist hydrates asynchronously
-    const unsub = useAlarmStore.persist.onFinishHydration(() => {
-        setHydrated(true);
-    });
-
-    // If already hydrated (fast devices), set immediately
-    if (useAlarmStore.persist.hasHydrated()) {
-        setHydrated(true);
-    }
-
-    return unsub;
-    }, []);
-
-    if (!hydrated) {
-        return (
-            <View style={styles.container}>
-            <View style={styles.empty}>
-                <Text style={styles.emptySubtitle}>Loading...</Text>
-            </View>
-            </View>
-        );
-    }
-
-  return (
-    <View style={styles.container}>
       {alarms.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>🔔</Text>
-          <Text style={styles.emptyTitle}>No alarms set</Text>
-          <Text style={styles.emptySubtitle}>
-            Tap + to add a destination alarm
+        <View style={{ flex: 1, alignItems: 'center',
+          justifyContent: 'center', gap: SPACING.sm }}>
+          <View style={{ width: 72, height: 72, borderRadius: RADIUS.xl,
+            backgroundColor: C.surface, borderWidth: 0.5,
+            borderColor: C.surfaceBorder, alignItems: 'center',
+            justifyContent: 'center', marginBottom: SPACING.sm }}>
+            <Text style={{ fontSize: 32 }}>🔔</Text>
+          </View>
+          <Text style={{ fontSize: 18, fontWeight: '600',
+            color: C.text, letterSpacing: -0.3 }}>
+            No alarms set
+          </Text>
+          <Text style={{ fontSize: 14, color: C.textSecondary }}>
+            Tap + to add a destination
           </Text>
         </View>
       ) : (
         <FlatList
           data={alarms}
           keyExtractor={(item) => item.id}
-          renderItem={renderAlarm}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={{
+            padding: SPACING.md,
+            paddingTop: SPACING.sm,
+            paddingBottom: 110,
+          }}
+          renderItem={({ item }) => {
+            const { label, isClose, isWithin } = getDistInfo(item);
+            return (
+              <AlarmCard
+                alarm={item}
+                distance={label}
+                isClose={isClose}
+                isWithin={isWithin}
+                onPress={() => router.push(`/edit-alarm?id=${item.id}`)}
+              />
+            );
+          }}
         />
       )}
 
-      {/* Floating add button */}
       <TouchableOpacity
-        style={styles.fab}
+        style={{
+          position: 'absolute',
+          bottom: 104,
+          right: SPACING.lg,
+          width: 56, height: 56,
+          borderRadius: RADIUS.lg,
+          backgroundColor: C.primary,
+          alignItems: 'center', justifyContent: 'center',
+          elevation: 8,
+          shadowColor: C.primary,
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.4,
+          shadowRadius: 12,
+        }}
         onPress={() => router.push('/create-alarm')}
         activeOpacity={0.85}
       >
-        <Text style={styles.fabText}>+</Text>
+        <Text style={{ fontSize: 28, color: '#fff',
+          lineHeight: 32, fontWeight: '300' }}>+</Text>
       </TouchableOpacity>
+
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  list: { padding: SPACING.md, gap: SPACING.sm },
-  empty: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: SPACING.sm,
-  },
-  emptyIcon: { fontSize: 56 },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  emptySubtitle: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  alarmCard: {
-    backgroundColor: COLORS.card,
-    borderRadius: 16,
-    padding: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-  },
-  alarmCardClose: { borderColor: '#FF9500' },
-  alarmCardWithin: { borderColor: COLORS.success, backgroundColor: '#F0FFF4' },
-  alarmInfo: { flex: 1, gap: 3 },
-  alarmLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-  },
-  alarmMeta: {
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  alarmDistance: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.primary,
-    marginTop: 4,
-  },
-  alarmDistanceWithin: { color: COLORS.success },
-  deleteBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteBtnText: {
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    fontWeight: '600',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 28,
-    right: 24,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-  },
-  editHint: {
-  width: 28,
-  justifyContent: 'center',
-  alignItems: 'center',
-},
-editHintText: {
-  fontSize: 22,
-  color: COLORS.textSecondary,
-  fontWeight: '300',
-},
-  fabText: {
-    fontSize: 32,
-    color: 'white',
-    lineHeight: 36,
-  },
-});

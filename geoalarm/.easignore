@@ -1,0 +1,11 @@
+.git
+.expo
+*.log
+*.map
+.env.local
+.env.development
+android/.gradle
+android/build
+android/app/build
+android/app/.cxx
+ios

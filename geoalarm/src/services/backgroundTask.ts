@@ -14,13 +14,14 @@ function formatDistance(meters: number): string {
 }
 
 async function updateLiveNotification(body: string): Promise<void> {
-  // Only update if content actually changed — prevents unnecessary pings
+  // Only update if content actually changed
   if (body === lastNotificationBody) return;
   lastNotificationBody = body;
 
-  // Dismiss old one silently then repost with same identifier
+  // Dismiss old notification
   await Notifications.dismissNotificationAsync("geoalarm-live");
 
+  // Repost updated notification
   await Notifications.scheduleNotificationAsync({
     identifier: "geoalarm-live",
     content: {
@@ -28,7 +29,6 @@ async function updateLiveNotification(body: string): Promise<void> {
       body,
       sticky: true,
       autoDismiss: false,
-      silent: true, // ← no sound/vibration on update
       priority: Notifications.AndroidNotificationPriority.LOW,
     },
     trigger: null,
@@ -44,18 +44,24 @@ TaskManager.defineTask(BACKGROUND_TASK_NAME, async ({ data, error }) => {
   if (!data) return;
 
   const { locations } = data as { locations: Location.LocationObject[] };
+
   const current = locations[0]?.coords;
+
   if (!current) return;
 
   try {
     const AsyncStorage = (
       await import("@react-native-async-storage/async-storage")
     ).default;
+
     const raw = await AsyncStorage.getItem("geoalarm-store");
+
     if (!raw) return;
 
     const parsed = JSON.parse(raw);
+
     const alarms = parsed?.state?.alarms ?? [];
+
     if (alarms.length === 0) return;
 
     const distances = alarms.map((alarm: any) => ({
@@ -73,8 +79,9 @@ TaskManager.defineTask(BACKGROUND_TASK_NAME, async ({ data, error }) => {
       a.distance < b.distance ? a : b,
     );
 
-    // Round distance to nearest 50m to reduce pointless updates
+    // Round distance to nearest 50m
     const roundedDistance = Math.round(closest.distance / 50) * 50;
+
     const distanceText = formatDistance(roundedDistance);
 
     const body =
@@ -84,7 +91,7 @@ TaskManager.defineTask(BACKGROUND_TASK_NAME, async ({ data, error }) => {
 
     await updateLiveNotification(body);
 
-    // Check each alarm for trigger
+    // Check alarms
     for (const { alarm, distance } of distances) {
       if (distance <= alarm.radiusMeters && !triggeredAlarms.has(alarm.id)) {
         triggeredAlarms.add(alarm.id);

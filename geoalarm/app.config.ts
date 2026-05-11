@@ -15,6 +15,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     backgroundColor: "#ffffff",
   },
   android: {
+    package: "com.ash.geoalarm",
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
       backgroundColor: "#ffffff",
@@ -56,6 +57,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
   ],
   extra: {
+    eas: {
+      projectId: "bdc1e533-9971-40af-b2a3-72ecbaf612eb",
+    },
     googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
   },
 });
